@@ -1,4 +1,6 @@
-#include "particle_system.cuh"
+#include "particle_system_cpu.cuh"
+
+#include "constants.cuh"
 
 Vector2::Vector2(float x, float y) : x(x), y(y) {
 }
@@ -33,7 +35,7 @@ Particle::Particle(float mass, Vector2 position, Vector2 velocity)
 Particle Particle::create_random() {
     return Particle(
         distribution(generator),
-        Vector2(distribution(generator), distribution(generator)) * ParticleSystem::BOX_SIDE_LENGTH,
+        Vector2(distribution(generator), distribution(generator)) * BOX_SIDE_LENGTH,
         Vector2(distribution(generator) - 0.5f, distribution(generator) - 0.5f));
 }
 
@@ -46,8 +48,6 @@ float Particle::distance(Particle& p1, Particle& p2) {
     return (p1.position - p2.position).norm();
 }
 
-float ParticleSystem::BOX_COLLISION_MULTIPLIER = -0.5f;
-float ParticleSystem::BOX_SIDE_LENGTH = 2.0f;
 std::default_random_engine Particle::generator;
 std::uniform_real_distribution<float> Particle::distribution(0.0f, 1.0f);
 
@@ -64,8 +64,6 @@ ParticleSystem::ParticleSystem(
     state.reserve(particles.size());
     derivative.reserve(particles.size());
     clock = 0.0f;
-    // TODO: Calculate delta
-    time_delta = 0.01f;
 }
 
 void ParticleSystem::progress() {
@@ -74,8 +72,7 @@ void ParticleSystem::progress() {
     calculate_state();
     add_std_vectors(state, derivative);
     restore_state();
-    // TODO: Calculate delta
-    clock += time_delta;
+    clock += TIME_DELTA;
 }
 
 std::reference_wrapper<const std::vector<Particle>> ParticleSystem::get_particles() const {
@@ -149,7 +146,7 @@ void ParticleSystem::calculate_derivative() {
 
 void ParticleSystem::scale_derivative() {
     for(float& coord : derivative) {
-        coord *= time_delta;
+        coord *= TIME_DELTA;
     }
 }
 

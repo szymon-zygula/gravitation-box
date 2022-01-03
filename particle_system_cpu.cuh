@@ -41,17 +41,11 @@ struct Particle {
 void add_std_vectors(std::vector<float>& v, const std::vector<float>& u);
 
 class ParticleSystem {
-    static float BOX_COLLISION_MULTIPLIER;
-
-  public:
-    static float BOX_SIDE_LENGTH;
-
   private:
     std::vector<Particle> particles;
     std::vector<float> state;
     std::vector<float> derivative;
     float clock;
-    float time_delta;
     float particle_radius;
     float gravitational_acceleration;
 

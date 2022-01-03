@@ -22,25 +22,12 @@
 
 #include <vector_types.h>
 
-#include "particle_system.cuh"
+#include "constants.cuh"
+#include "particle_system_cpu.cuh"
 
 #define MAX_EPSILON_ERROR 10.0f
 #define THRESHOLD 0.30f
 #define REFRESH_DELAY 10 // ms
-
-////////////////////////////////////////////////////////////////////////////////
-// constants
-const size_t window_width = 1024;
-const size_t window_height = 1024;
-
-constexpr float PARTICLE_RADIUS = 0.005f;
-constexpr float GRAVITATIONAL_ACCELERATION = -3.0f;
-constexpr size_t PARTICLE_COUNT = 2048;
-
-constexpr bool GPU_ACCELERATION = false;
-
-constexpr size_t BLOCK_SIZE = std::min((size_t)1024, PARTICLE_COUNT);
-constexpr size_t BLOCK_COUNT = PARTICLE_COUNT / BLOCK_SIZE;
 
 // vbo variables
 GLuint vbo;
@@ -118,7 +105,7 @@ void compute_fps() {
 bool init_gl(int* argc, char** argv) {
     glutInit(argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    glutInitWindowSize(window_width, window_height);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
     glutCreateWindow("Cuda GL Interop (VBO)");
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
@@ -136,7 +123,7 @@ bool init_gl(int* argc, char** argv) {
     glDisable(GL_DEPTH_TEST);
 
     // viewport
-    glViewport(0, 0, window_width, window_height);
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     SDK_CHECK_ERROR_GL();
 
