@@ -141,8 +141,7 @@ bool run_program(int argc, char** argv) {
         particles.push_back(Particle::create_random());
     }
 
-    particle_system =
-        std::make_unique<ParticleSystem>(particles, PARTICLE_RADIUS, GRAVITATIONAL_ACCELERATION);
+    particle_system = std::make_unique<ParticleSystem>(particles);
 
     // use command-line specified CUDA device, otherwise use device with highest
     // Gflops/s

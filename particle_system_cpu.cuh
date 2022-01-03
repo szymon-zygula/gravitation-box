@@ -46,12 +46,9 @@ class ParticleSystem {
     std::vector<float> state;
     std::vector<float> derivative;
     float clock;
-    float particle_radius;
-    float gravitational_acceleration;
 
   public:
-    ParticleSystem(
-        std::vector<Particle>& particles, float particle_radius, float gravitational_acceleration);
+    ParticleSystem(std::vector<Particle>& particles);
 
     void progress();
     std::reference_wrapper<const std::vector<Particle>> get_particles() const;

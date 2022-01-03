@@ -57,9 +57,7 @@ void add_std_vectors(std::vector<float>& v, const std::vector<float>& u) {
     }
 }
 
-ParticleSystem::ParticleSystem(
-    std::vector<Particle>& particles, float particle_radius, float gravitational_acceleration)
-    : particle_radius(particle_radius), gravitational_acceleration(gravitational_acceleration) {
+ParticleSystem::ParticleSystem(std::vector<Particle>& particles) {
     this->particles = particles;
     state.reserve(particles.size());
     derivative.reserve(particles.size());
@@ -87,14 +85,14 @@ void ParticleSystem::clear_forces() {
 
 void ParticleSystem::compute_gravity() {
     for(Particle& particle : particles) {
-        particle.force.y += particle.mass * gravitational_acceleration;
+        particle.force.y += particle.mass * GRAVITATIONAL_ACCELERATION;
     }
 }
 
 void ParticleSystem::compute_particle_collisions() {
     for(size_t i = 0; i < particles.size(); ++i) {
         for(size_t j = 0; j < i; ++j) {
-            if(Particle::distance(particles[i], particles[j]) <= 2 * particle_radius) {
+            if(Particle::distance(particles[i], particles[j]) <= 2 * PARTICLE_RADIUS) {
                 float m1 = particles[i].mass;
                 float m2 = particles[j].mass;
                 Vector2 v1 = particles[i].velocity;
