@@ -125,8 +125,8 @@ void ParticleSystem::compute_border_collisions() {
 
 void ParticleSystem::compute_forces() {
     compute_gravity();
-    compute_particle_collisions();
     compute_border_collisions();
+    compute_particle_collisions();
 }
 
 void ParticleSystem::calculate_derivative() {

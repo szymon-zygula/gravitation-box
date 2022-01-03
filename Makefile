@@ -1,5 +1,5 @@
 TARGET=gravitation-box
-FILES=main.cu particle_system_cpu.cu
+FILES=main.cu particle_system_cpu.cu particle_system_gpu.cu
 
 ${TARGET}:
 	nvcc -Icuda-samples-common --std=c++14 -lGL -lGLU -lglut -o ${TARGET} ${FILES}

@@ -1,3 +1,6 @@
+#ifndef PARTICLE_SYSTEM_CPU_CUH
+#define PARTICLE_SYSTEM_CPU_CUH
+
 #include <cmath>
 
 #include <functional>
@@ -64,3 +67,5 @@ class ParticleSystem {
     void calculate_state();
     void restore_state();
 };
+
+#endif

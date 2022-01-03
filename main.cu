@@ -24,6 +24,7 @@
 
 #include "constants.cuh"
 #include "particle_system_cpu.cuh"
+#include "particle_system_gpu.cuh"
 
 #define MAX_EPSILON_ERROR 10.0f
 #define THRESHOLD 0.30f
@@ -48,6 +49,7 @@ size_t g_total_errors = 0;
 bool g_b_qa_eadback = false;
 
 std::unique_ptr<ParticleSystem> particle_system;
+std::unique_ptr<ParticleSystemCuda> cuda_particle_system;
 
 // declaration, forward
 bool run_program(int argc, char** argv);
@@ -68,12 +70,6 @@ void run_cuda(struct cudaGraphicsResource** vbo_resource);
 void run_cpu();
 
 const char* sSDKsample = "simpleGL (VBO)";
-
-__global__ void simple_vbo_kernel(float4* pos, float time) {
-    size_t thread_id = blockIdx.x * blockDim.x + threadIdx.x;
-
-    pos[thread_id] = make_float4(-0.9f + thread_id * 0.005f, 0.9f, 1.0f, 1.0f);
-}
 
 int main(int argc, char** argv) {
     setenv("DISPLAY", ":0", 0);
@@ -141,7 +137,12 @@ bool run_program(int argc, char** argv) {
         particles.push_back(Particle::create_random());
     }
 
-    particle_system = std::make_unique<ParticleSystem>(particles);
+    if(GPU_ACCELERATION) {
+        cuda_particle_system = std::make_unique<ParticleSystemCuda>();
+        ParticleSystemCuda::randomize_system(*cuda_particle_system);
+    } else {
+        particle_system = std::make_unique<ParticleSystem>(particles);
+    }
 
     // use command-line specified CUDA device, otherwise use device with highest
     // Gflops/s
@@ -157,6 +158,8 @@ bool run_program(int argc, char** argv) {
 
     create_vbo(&vbo, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
     glutMainLoop();
+
+    cuda_particle_system->destroy();
 
     return true;
 }
@@ -176,7 +179,9 @@ void run_cuda(struct cudaGraphicsResource** vbo_resource) {
     size_t num_bytes;
     checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void**)&dptr, &num_bytes, *vbo_resource));
 
-    simple_vbo_kernel<<<BLOCK_SIZE, BLOCK_COUNT>>>(dptr, g_f_anim);
+    progress_system_1<<<BLOCK_COUNT, BLOCK_SIZE>>>(*cuda_particle_system);
+    cudaDeviceSynchronize();
+    progress_system_2<<<BLOCK_COUNT, BLOCK_SIZE>>>(*cuda_particle_system, dptr);
 
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, vbo_resource, 0));
