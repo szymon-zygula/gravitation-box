@@ -1,8 +1,10 @@
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+
+#include <algorithm>
+#include <memory>
 
 #include <GL/freeglut.h>
 #include <helper_gl.h>
@@ -20,38 +22,45 @@
 
 #include <vector_types.h>
 
+#include "particle_system.cuh"
+
 #define MAX_EPSILON_ERROR 10.0f
 #define THRESHOLD 0.30f
 #define REFRESH_DELAY 10 // ms
 
 ////////////////////////////////////////////////////////////////////////////////
 // constants
-const unsigned int window_width = 512;
-const unsigned int window_height = 512;
+const size_t window_width = 1024;
+const size_t window_height = 1024;
 
-constexpr unsigned int PARTICLE_COUNT = 256;
-constexpr unsigned int BLOCK_SIZE = std::min(1024u, PARTICLE_COUNT);
-constexpr unsigned int BLOCK_COUNT = PARTICLE_COUNT / BLOCK_SIZE;
+constexpr float PARTICLE_RADIUS = 0.005f;
+constexpr float GRAVITATIONAL_ACCELERATION = -3.0f;
+constexpr size_t PARTICLE_COUNT = 2048;
+
+constexpr bool GPU_ACCELERATION = false;
+
+constexpr size_t BLOCK_SIZE = std::min((size_t)1024, PARTICLE_COUNT);
+constexpr size_t BLOCK_COUNT = PARTICLE_COUNT / BLOCK_SIZE;
 
 // vbo variables
 GLuint vbo;
 struct cudaGraphicsResource* cuda_vbo_resource;
 void* d_vbo_buffer = NULL;
 
-float g_fAnim = 0.0;
+float g_f_anim = 0.0;
 
 StopWatchInterface* timer = NULL;
 
 // Auto-Verification Code
-int fpsCount = 0; // FPS count for averaging
-int fpsLimit = 1; // FPS limit for sampling
+int fps_count = 0; // FPS count for averaging
+int fps_limit = 1; // FPS limit for sampling
 int g_Index = 0;
-float avgFPS = 0.0f;
-unsigned int frameCount = 0;
-unsigned int g_TotalErrors = 0;
-bool g_bQAReadback = false;
+float average_fps = 0.0f;
+size_t frame_count = 0;
+size_t g_total_errors = 0;
+bool g_b_qa_eadback = false;
 
-#define MAX(a, b) ((a > b) ? a : b)
+std::unique_ptr<ParticleSystem> particle_system;
 
 // declaration, forward
 bool run_program(int argc, char** argv);
@@ -59,7 +68,7 @@ void cleanup();
 
 // GL functionality
 bool init_gl(int* argc, char** argv);
-void create_vbo(GLuint* vbo, struct cudaGraphicsResource** vbo_res, unsigned int vbo_res_flags);
+void create_vbo(GLuint* vbo, struct cudaGraphicsResource** vbo_res, size_t vbo_res_flags);
 void delete_vbo(GLuint* vbo, struct cudaGraphicsResource* vbo_res);
 
 // rendering callbacks
@@ -67,19 +76,16 @@ void display();
 void keyboard(unsigned char key, int x, int y);
 void timer_event(int value);
 
-// Cuda functionality
+void do_calculations(struct cudaGraphicsResource** vbo_resource);
 void run_cuda(struct cudaGraphicsResource** vbo_resource);
+void run_cpu();
 
 const char* sSDKsample = "simpleGL (VBO)";
 
 __global__ void simple_vbo_kernel(float4* pos, float time) {
-    unsigned int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t thread_id = blockIdx.x * blockDim.x + threadIdx.x;
 
     pos[thread_id] = make_float4(-0.9f + thread_id * 0.005f, 0.9f, 1.0f, 1.0f);
-}
-
-void launch_kernel(float4* pos, unsigned int particle_count, float time) {
-    simple_vbo_kernel<<<BLOCK_SIZE, BLOCK_COUNT>>>(pos, time);
 }
 
 int main(int argc, char** argv) {
@@ -88,24 +94,24 @@ int main(int argc, char** argv) {
 
     run_program(argc, argv);
 
-    printf("%s completed, returned %s\n", sSDKsample, (g_TotalErrors == 0) ? "OK" : "ERROR!");
-    exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+    printf("%s completed, returned %s\n", sSDKsample, (g_total_errors == 0) ? "OK" : "ERROR!");
+    exit(g_total_errors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
 void compute_fps() {
-    frameCount++;
-    fpsCount++;
+    frame_count++;
+    fps_count++;
 
-    if(fpsCount == fpsLimit) {
-        avgFPS = 1.f / (sdkGetAverageTimerValue(&timer) / 1000.f);
-        fpsCount = 0;
-        fpsLimit = (int)MAX(avgFPS, 1.f);
+    if(fps_count == fps_limit) {
+        average_fps = 1.f / (sdkGetAverageTimerValue(&timer) / 1000.f);
+        fps_count = 0;
+        fps_limit = (int)std::max(average_fps, 1.0f);
 
         sdkResetTimer(&timer);
     }
 
     char fps[256];
-    sprintf(fps, "Cuda GL Interop (VBO): %3.1f fps (Max 100Hz)", avgFPS);
+    sprintf(fps, "Gravitation Box: %3.1f fps", average_fps);
     glutSetWindowTitle(fps);
 }
 
@@ -141,6 +147,16 @@ bool run_program(int argc, char** argv) {
     // Create the CUTIL timer
     sdkCreateTimer(&timer);
 
+    // Create data
+    std::vector<Particle> particles;
+    particles.reserve(PARTICLE_COUNT);
+    for(size_t i = 0; i < PARTICLE_COUNT; ++i) {
+        particles.push_back(Particle::create_random());
+    }
+
+    particle_system =
+        std::make_unique<ParticleSystem>(particles, PARTICLE_RADIUS, GRAVITATIONAL_ACCELERATION);
+
     // use command-line specified CUDA device, otherwise use device with highest
     // Gflops/s
     int devID = findCudaDevice(argc, (const char**)argv);
@@ -154,10 +170,17 @@ bool run_program(int argc, char** argv) {
     glutCloseFunc(cleanup);
 
     create_vbo(&vbo, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
-    run_cuda(&cuda_vbo_resource);
     glutMainLoop();
 
     return true;
+}
+
+void do_calculations(struct cudaGraphicsResource** vbo_resource) {
+    if(GPU_ACCELERATION) {
+        run_cuda(vbo_resource);
+    } else {
+        run_cpu();
+    }
 }
 
 void run_cuda(struct cudaGraphicsResource** vbo_resource) {
@@ -167,17 +190,33 @@ void run_cuda(struct cudaGraphicsResource** vbo_resource) {
     size_t num_bytes;
     checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void**)&dptr, &num_bytes, *vbo_resource));
 
-    launch_kernel(dptr, PARTICLE_COUNT, g_fAnim);
+    simple_vbo_kernel<<<BLOCK_SIZE, BLOCK_COUNT>>>(dptr, g_f_anim);
 
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, vbo_resource, 0));
+}
+
+void run_cpu() {
+    particle_system->progress();
+
+    float4 particle_positions[PARTICLE_COUNT];
+
+    size_t i = 0;
+    for(const Particle& particle : particle_system->get_particles().get()) {
+        particle_positions[i] =
+            make_float4(particle.position.x - 1.0f, particle.position.y - 1.0f, 1.0f, 1.0f);
+        i += 1;
+    }
+
+    glBufferData(
+        GL_ARRAY_BUFFER, PARTICLE_COUNT * sizeof(float4), particle_positions, GL_DYNAMIC_DRAW);
 }
 
 #ifndef FOPEN
 #define FOPEN(fHandle, filename, mode) (fHandle = fopen(filename, mode))
 #endif
 
-void sdkDumpBin2(void* data, unsigned int bytes, const char* filename) {
+void sdkDumpBin2(void* data, size_t bytes, const char* filename) {
     printf("sdkDumpBin: <%s>\n", filename);
     FILE* fp;
     FOPEN(fp, filename, "wb");
@@ -186,7 +225,7 @@ void sdkDumpBin2(void* data, unsigned int bytes, const char* filename) {
     fclose(fp);
 }
 
-void create_vbo(GLuint* vbo, struct cudaGraphicsResource** vbo_res, unsigned int vbo_res_flags) {
+void create_vbo(GLuint* vbo, struct cudaGraphicsResource** vbo_res, size_t vbo_res_flags) {
     assert(vbo);
 
     // create buffer object
@@ -194,8 +233,8 @@ void create_vbo(GLuint* vbo, struct cudaGraphicsResource** vbo_res, unsigned int
     glBindBuffer(GL_ARRAY_BUFFER, *vbo);
 
     // initialize buffer object
-    unsigned int size = PARTICLE_COUNT * 4 * sizeof(float);
-    glBufferData(GL_ARRAY_BUFFER, size, 0, GL_DYNAMIC_DRAW);
+    size_t size = PARTICLE_COUNT * 4 * sizeof(float);
+    glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -220,7 +259,7 @@ void display() {
     sdkStartTimer(&timer);
 
     // run CUDA kernel to generate vertex positions
-    run_cuda(&cuda_vbo_resource);
+    do_calculations(&cuda_vbo_resource);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -239,7 +278,7 @@ void display() {
 
     glutSwapBuffers();
 
-    g_fAnim += 0.01f;
+    g_f_anim += 0.01f;
 
     sdkStopTimer(&timer);
     compute_fps();

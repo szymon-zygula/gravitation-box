@@ -1,1 +1,4 @@
 *.out
+gravitation-box
+compile_commands.json
+.cache
