@@ -181,7 +181,9 @@ void run_cuda(struct cudaGraphicsResource** vbo_resource) {
 
     progress_system_1<<<BLOCK_COUNT, BLOCK_SIZE>>>(*cuda_particle_system);
     cudaDeviceSynchronize();
-    progress_system_2<<<BLOCK_COUNT, BLOCK_SIZE>>>(*cuda_particle_system, dptr);
+    progress_system_2<<<BLOCK_COUNT, BLOCK_SIZE>>>(*cuda_particle_system);
+    cudaDeviceSynchronize();
+    progress_system_3<<<BLOCK_COUNT, BLOCK_SIZE>>>(*cuda_particle_system, dptr);
 
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, vbo_resource, 0));

@@ -26,6 +26,7 @@ struct ParticleSystemCuda {
     __host__ void destroy();
     __device__ void progress_1(size_t idx);
     __device__ void progress_2(size_t idx);
+    __device__ void progress_3(size_t idx);
     __device__ float get_position_x(size_t idx);
     __device__ float get_position_y(size_t idx);
 
@@ -37,8 +38,10 @@ struct ParticleSystemCuda {
     __device__ void compute_border_collisions(size_t idx);
     __device__ void compute_force_1(size_t idx);
     __device__ void compute_force_2(size_t idx);
+    __device__ void compute_force_3(size_t idx);
     __device__ void calculate_derivative_1(size_t idx);
     __device__ void calculate_derivative_2(size_t idx);
+    __device__ void calculate_derivative_3(size_t idx);
     __device__ void scale_derivative(size_t idx);
     __device__ void calculate_state(size_t idx);
     __device__ void add_derivative_to_state(size_t idx);
@@ -46,6 +49,7 @@ struct ParticleSystemCuda {
 };
 
 __global__ void progress_system_1(ParticleSystemCuda particle_system);
-__global__ void progress_system_2(ParticleSystemCuda particle_system, float4* positions);
+__global__ void progress_system_2(ParticleSystemCuda particle_system);
+__global__ void progress_system_3(ParticleSystemCuda particle_system, float4* positions);
 
 #endif

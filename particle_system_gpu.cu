@@ -56,6 +56,10 @@ __device__ void ParticleSystemCuda::progress_1(size_t idx) {
 
 __device__ void ParticleSystemCuda::progress_2(size_t idx) {
     calculate_derivative_2(idx);
+}
+
+__device__ void ParticleSystemCuda::progress_3(size_t idx) {
+    calculate_derivative_3(idx);
     scale_derivative(idx);
     calculate_state(idx);
     add_derivative_to_state(idx);
@@ -95,7 +99,6 @@ __device__ void ParticleSystemCuda::compute_particle_collisions_1(size_t idx) {
                 ((m1 - m2) / (m1 + m2)) * v1_x + (2.0f * m2 / (m1 + m2)) * v2_x;
             d_temp_velocities_y[idx] =
                 ((m1 - m2) / (m1 + m2)) * v1_y + (2.0f * m2 / (m1 + m2)) * v2_y;
-
             break;
         }
     }
@@ -125,10 +128,13 @@ __device__ void ParticleSystemCuda::compute_border_collisions(size_t idx) {
 __device__ void ParticleSystemCuda::compute_force_1(size_t idx) {
     compute_gravity(idx);
     compute_border_collisions(idx);
-    compute_particle_collisions_1(idx);
 }
 
 __device__ void ParticleSystemCuda::compute_force_2(size_t idx) {
+    compute_particle_collisions_1(idx);
+}
+
+__device__ void ParticleSystemCuda::compute_force_3(size_t idx) {
     compute_particle_collisions_2(idx);
 }
 
@@ -139,6 +145,10 @@ __device__ void ParticleSystemCuda::calculate_derivative_1(size_t idx) {
 
 __device__ void ParticleSystemCuda::calculate_derivative_2(size_t idx) {
     compute_force_2(idx);
+}
+
+__device__ void ParticleSystemCuda::calculate_derivative_3(size_t idx) {
+    compute_force_3(idx);
 
     size_t idx4 = 4 * idx;
     d_derivative[idx4 + 0] = d_velocities_x[idx];
@@ -188,13 +198,22 @@ __global__ void progress_system_1(ParticleSystemCuda particle_system) {
     particle_system.progress_1(idx);
 }
 
-__global__ void progress_system_2(ParticleSystemCuda particle_system, float4* positions) {
+__global__ void progress_system_2(ParticleSystemCuda particle_system) {
     size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
     if(idx >= PARTICLE_COUNT) {
         return;
     }
 
     particle_system.progress_2(idx);
+}
+
+__global__ void progress_system_3(ParticleSystemCuda particle_system, float4* positions) {
+    size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if(idx >= PARTICLE_COUNT) {
+        return;
+    }
+
+    particle_system.progress_3(idx);
     positions[idx] = make_float4(
         particle_system.get_position_x(idx) - 1.0f, particle_system.get_position_y(idx) - 1.0f,
         1.0f, 1.0f);
