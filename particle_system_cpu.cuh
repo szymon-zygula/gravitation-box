@@ -48,7 +48,6 @@ class ParticleSystem {
     std::vector<Particle> particles;
     std::vector<float> state;
     std::vector<float> derivative;
-    float clock;
 
   public:
     ParticleSystem(std::vector<Particle>& particles);

@@ -61,7 +61,6 @@ ParticleSystem::ParticleSystem(std::vector<Particle>& particles) {
     this->particles = particles;
     state.reserve(particles.size());
     derivative.reserve(particles.size());
-    clock = 0.0f;
 }
 
 void ParticleSystem::progress() {
@@ -70,7 +69,6 @@ void ParticleSystem::progress() {
     calculate_state();
     add_std_vectors(state, derivative);
     restore_state();
-    clock += TIME_DELTA;
 }
 
 std::reference_wrapper<const std::vector<Particle>> ParticleSystem::get_particles() const {
