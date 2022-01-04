@@ -89,6 +89,18 @@ void ParticleSystem::compute_gravity() {
     }
 }
 
+int signum(float s) {
+    if(s > 0) {
+        return 1;
+    }
+
+    if(s < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 void ParticleSystem::compute_particle_collisions() {
     for(size_t i = 0; i < particles.size(); ++i) {
         for(size_t j = 0; j < i; ++j) {
@@ -98,8 +110,21 @@ void ParticleSystem::compute_particle_collisions() {
                 Vector2 v1 = particles[i].velocity;
                 Vector2 v2 = particles[j].velocity;
 
-                particles[i].velocity = ((m1 - m2) / (m1 + m2)) * v1 + (2.0f * m2 / (m1 + m2)) * v2;
-                particles[j].velocity = (2.0f * m1 / (m1 + m2)) * v1 + ((m2 - m1) / (m1 + m2)) * v2;
+                if(signum(v1.x - v2.x) !=
+                   signum(particles[i].position.x - particles[j].position.y)) {
+                    particles[i].velocity.x =
+                        ((m1 - m2) / (m1 + m2)) * v1.x + (2.0f * m2 / (m1 + m2)) * v2.x;
+                    particles[j].velocity.x =
+                        (2.0f * m1 / (m1 + m2)) * v1.x + ((m2 - m1) / (m1 + m2)) * v2.x;
+                }
+
+                if(signum(v1.y - v2.y) !=
+                   signum(particles[i].position.y - particles[j].position.y)) {
+                    particles[i].velocity.y =
+                        ((m1 - m2) / (m1 + m2)) * v1.y + (2.0f * m2 / (m1 + m2)) * v2.y;
+                    particles[j].velocity.y =
+                        (2.0f * m1 / (m1 + m2)) * v1.y + ((m2 - m1) / (m1 + m2)) * v2.y;
+                }
             }
         }
     }

@@ -39,7 +39,7 @@ __host__ void ParticleSystemCuda::randomize_system(ParticleSystemCuda& particle_
     cudaMemcpy(
         particle_system.d_velocities_x, h_velocities_x.data(), mem_size, cudaMemcpyHostToDevice);
     cudaMemcpy(
-        particle_system.d_velocities_y, h_positions_y.data(), mem_size, cudaMemcpyHostToDevice);
+        particle_system.d_velocities_y, h_velocities_y.data(), mem_size, cudaMemcpyHostToDevice);
 }
 
 __device__ float ParticleSystemCuda::get_position_x(size_t idx) {
@@ -75,6 +75,18 @@ __device__ void ParticleSystemCuda::compute_gravity(size_t idx) {
     d_forces_y[idx] += d_masses[idx] * GRAVITATIONAL_ACCELERATION;
 }
 
+__device__ int d_signum(float s) {
+    if(s > 0) {
+        return 1;
+    }
+
+    if(s < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 __device__ void ParticleSystemCuda::compute_particle_collisions_1(size_t idx) {
     d_temp_velocities_x[idx] = d_velocities_x[idx];
     d_temp_velocities_y[idx] = d_velocities_y[idx];
@@ -95,10 +107,15 @@ __device__ void ParticleSystemCuda::compute_particle_collisions_1(size_t idx) {
             float v2_x = d_velocities_x[i];
             float v2_y = d_velocities_y[i];
 
-            d_temp_velocities_x[idx] =
-                ((m1 - m2) / (m1 + m2)) * v1_x + (2.0f * m2 / (m1 + m2)) * v2_x;
-            d_temp_velocities_y[idx] =
-                ((m1 - m2) / (m1 + m2)) * v1_y + (2.0f * m2 / (m1 + m2)) * v2_y;
+            if(d_signum(v1_x - v2_x) != d_signum(d_positions_x[idx] - d_positions_x[i])) {
+                d_temp_velocities_x[idx] =
+                    ((m1 - m2) / (m1 + m2)) * v1_x + (2.0f * m2 / (m1 + m2)) * v2_x;
+            }
+            if(d_signum(v1_y - v2_y) != d_signum(d_positions_y[idx] - d_positions_y[i])) {
+                d_temp_velocities_y[idx] =
+                    ((m1 - m2) / (m1 + m2)) * v1_y + (2.0f * m2 / (m1 + m2)) * v2_y;
+            }
+
             break;
         }
     }
